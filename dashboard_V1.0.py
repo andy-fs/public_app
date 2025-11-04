@@ -322,43 +322,24 @@ def nice_duration(seconds: float) -> str:
 
 
 # --------------------
-# Sidebar: Data inladen
+# Data inladen
 # --------------------
-st.sidebar.header("📦 Data-instellingen")
-
-default_base = "C:/Users/gert-janhaenen/Downloads/OneDrive_1_10-9-2025"
-base_path = st.sidebar.text_input("Map met CSV’s", value=default_base)
-
-fn_HGWBRN = st.sidebar.text_input("HGWBRN sensor CSV", value="HGWBRN.csv", key="fn_hn")
-fn_HGWBRZ = st.sidebar.text_input("HGWBRZ sensor CSV", value="HGWBRZ.csv", key="fn_hz")
-fn_GW   = st.sidebar.text_input("GWBR sensor CSV",   value="GWBR_draaibrug.csv", key="fn_gw")
-
-fn_ST_HN  = st.sidebar.text_input("HGWBRN storingen CSV", value="Storingen_HGWBRN.csv", key="st_hn")
-fn_ST_HZ  = st.sidebar.text_input("HGWBRZ storingen CSV", value="Storingen_HGWBRZ.csv", key="st_hz")
-fn_ST_GW  = st.sidebar.text_input("GWBR storingen CSV",   value="Storingen_GWBR.csv",   key="st_gw")
-
-fn_LS = st.sidebar.text_input("Laatste storingen Excel bestand", value = "Laatste storingen.xlsx")
-
-sep_storingen = st.sidebar.selectbox("Separator storingsbestanden", options=[";", ",", "\\t"], index=0)
-sep_map = {";": ";", ",": ",", "\\t": "\t"}
-sep_storingen = sep_map[sep_storingen]
-
-load_button = st.sidebar.button("📥 CSV's inladen / verversen")
-if load_button:
-    st.cache_data.clear()
-
 try:
-    df_HN = read_sensor_csv(os.path.join(base_path, fn_HGWBRN))
-    df_HZ = read_sensor_csv(os.path.join(base_path, fn_HGWBRZ))
-    df_GW = read_sensor_csv(os.path.join(base_path, fn_GW))
+    # Load sensor data
+    df_HN = read_sensor_csv("data/HGWBRN.csv")
+    df_HZ = read_sensor_csv("data/HGWBRZ.csv")
+    df_GW = read_sensor_csv("data/GWBR_draaibrug.csv")
 
-    st_HN = read_storing_csv(os.path.join(base_path, fn_ST_HN), sep=sep_storingen)
-    st_HZ = read_storing_csv(os.path.join(base_path, fn_ST_HZ), sep=sep_storingen)
-    st_GW = read_storing_csv(os.path.join(base_path, fn_ST_GW), sep=sep_storingen)
+    # Load storings data with semicolon separator
+    st_HN = read_storing_csv("data/Storingen_HGWBRN.csv", sep=';')
+    st_HZ = read_storing_csv("data/Storingen_HGWBRZ.csv", sep=';')
+    st_GW = read_storing_csv("data/Storingen_GWBR.csv", sep=';')
 
-    latest_storingen = read_latest_storingen_xlsx(os.path.join(base_path, fn_LS))
+    # Load latest storings Excel file
+    latest_storingen = read_latest_storingen_xlsx("data/Laatste storingen.xlsx")
 
-    st.success("✅ Alle CSV-bestanden succesvol geladen!")
+    st.success("✅ Alle bestanden succesvol geladen!")
+    
 except FileNotFoundError as e:
     st.error(f"❌ Bestand niet gevonden: {e}")
     st.stop()
