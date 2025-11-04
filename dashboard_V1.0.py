@@ -206,61 +206,6 @@ def _build_dataset_from_storingen(st_df: pd.DataFrame, agg: str = 'week') -> pd.
     df_full['target_next'] = df_full.groupby('_fault')['count'].shift(-1)
     return df_full
 
-@st.cache_data(show_spinner=False)
-def _train_and_predict_next_week(df_full: pd.DataFrame, iterations: int = 800):
-    try:
-        from catboost import CatBoostRegressor, Pool
-    except ImportError as e:
-        raise RuntimeError("CatBoost is niet geïnstalleerd. Installeer met: pip install catboost") from e
-
-    FEATURES = [
-        '_fault','cum_count','cum_mean','cum_std','nonzero_cumsum','gap_since_last',
-        'roll_4','roll_12','roll_52','ewma_4','ewma_12','ewma_26',
-        'trend_slope','freq_nonzero','prop_recent'
-    ]
-    CAT_FEAT = ['_fault']
-
-    df_full = df_full.copy()
-    # laatste bekende period en de volgende week
-    last_period = pd.to_datetime(df_full['period'].max())
-    next_period = (last_period + pd.Timedelta(days=7)).to_period('W').start_time
-
-    # modelset (alle rijen met target_next bekend voor training)
-    df_model = df_full.dropna(subset=['target_next']).copy()
-    for c in FEATURES:
-        if c not in CAT_FEAT:
-            df_model[c] = pd.to_numeric(df_model[c], errors='coerce').fillna(0.0)
-
-    cat_indices = [FEATURES.index(c) for c in CAT_FEAT]
-    train_pool = Pool(df_model[FEATURES], df_model['target_next'].astype(float), cat_features=cat_indices)
-
-    model = CatBoostRegressor(
-        iterations=iterations,
-        learning_rate=0.05,
-        depth=6,
-        loss_function='Poisson',
-        random_seed=42,
-        verbose=False
-    )
-    model.fit(train_pool)
-
-    # predict voor volgende week: neem laatste feature-rij per fault en pas kalender niet eens aan (alle kalenderfeatures zitten hier niet in)
-    last_rows = df_full[df_full['period'] == df_full['period'].max()].copy()
-    X_next = last_rows[FEATURES].copy()
-    for c in FEATURES:
-        if c not in CAT_FEAT:
-            X_next[c] = pd.to_numeric(X_next[c], errors='coerce').fillna(0.0)
-
-    pred_pool = Pool(X_next, cat_features=cat_indices)
-    lam = model.predict(pred_pool)  # verwachte count λ
-    out = last_rows[['_fault']].copy()
-    out['pred_next_count'] = lam
-    out['prob_at_least_one'] = 1.0 - np.exp(-np.clip(lam, 0, None))  # 1 - e^-λ
-    out['next_period_start'] = next_period
-    return out.sort_values('prob_at_least_one', ascending=False).reset_index(drop=True)
-
-
-
 
 # --------------------
 # Laatste storingen (Excel)
