@@ -640,7 +640,7 @@ tab1, tab2 = st.tabs(["Tijdlijn & volume", "Top meldingen"])
 
 with tab1:
     st.markdown("### Volume door de tijd")
-    st_choice = st.selectbox("Kies storingsbron", options=["HGWBRN","HGWBRZ","GWBR"], index=0, key="st_src")
+    st_choice = st.selectbox("Kies storingsbron", options=["GWBR", "HGWBRN", "HGWBRZ"], index=0, key="st_src")
     st_df = {"HGWBRN": st_HN, "HGWBRZ": st_HZ, "GWBR": st_GW}[st_choice]
     
     # Try to add train data directly
