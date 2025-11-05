@@ -1077,12 +1077,46 @@ with col_config2:
 # --------------------
 
 @st.cache_data(show_spinner=False)
+def read_clean_storing_csv_for_rf(path: str, sep: str = ";") -> pd.DataFrame:
+    """Read clean storings data specifically for RF models - no modifications"""
+    encodings_to_try = ["utf-8", "latin1", "windows-1252"]
+    for enc in encodings_to_try:
+        try:
+            df = pd.read_csv(path, sep=sep, encoding=enc)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    if "TimeString" in df.columns:
+        ts = pd.to_datetime(df["TimeString"], errors="coerce", format="%d.%m.%Y %H:%M:%S")
+        ts_naive = ts.dt.tz_localize(None)
+        try:
+            ts_local = ts_naive.dt.tz_localize(LOC_TZ, ambiguous="NaT", nonexistent="NaT")
+        except Exception:
+            ts_local = ts_naive.dt.tz_localize("UTC").dt.tz_convert(LOC_TZ)
+        df["time_local"] = ts_local
+    else:
+        df["time_local"] = pd.NaT
+
+    for c in ["MsgText", "PLC", "MsgClass", "MsgNumber"]:
+        if c not in df.columns:
+            df[c] = ""
+
+    return df.sort_values("time_local").reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
 def prepare_predictive_data_combined():
-    """Bereid gecombineerde data voor van alle bruggen"""
+    """Bereid gecombineerde data voor van alle bruggen - USES FRESH DATA"""
     try:
+        # READ FRESH CLEAN DATA FOR RF MODELS
+        st_HN_clean = read_clean_storing_csv_for_rf("data/Storingen_HGWBRN.csv", sep=';')
+        st_HZ_clean = read_clean_storing_csv_for_rf("data/Storingen_HGWBRZ.csv", sep=';') 
+        st_GW_clean = read_clean_storing_csv_for_rf("data/Storingen_GWBR.csv", sep=';')
+        
         all_bridges_data = []
 
-        for bridge_name, storings_df in [("HGWBRN", st_HN), ("HGWBRZ", st_HZ), ("GWBR", st_GW)]:
+        for bridge_name, storings_df in [("HGWBRN", st_HN_clean), ("HGWBRZ", st_HZ_clean), ("GWBR", st_GW_clean)]:
             if storings_df is None or len(storings_df) == 0:
                 continue
 
@@ -1146,18 +1180,33 @@ def prepare_predictive_data_combined():
 
 
 @st.cache_data(show_spinner=False)
-def prepare_predictive_data_single(_storingen_df, bridge_name):
-    """Bereid data voor predictive modeling voor één brug"""
+def prepare_predictive_data_single(bridge_name):
+    """Bereid data voor predictive modeling voor één brug - USES FRESH CLEAN DATA"""
     try:
+        # READ FRESH CLEAN DATA SPECIFICALLY FOR RF MODELS
+        file_paths = {
+            "HGWBRN": "data/Storingen_HGWBRN.csv",
+            "HGWBRZ": "data/Storingen_HGWBRZ.csv", 
+            "GWBR": "data/Storingen_GWBR.csv"
+        }
+        
+        # Read fresh data from CSV file
+        storings_df = read_clean_storing_csv_for_rf(file_paths[bridge_name], sep=';')
+        
         # Controleer of we de vereiste kolommen hebben
         required_cols = ['time_local', 'MsgNumber', 'MsgProc', 'StateAfter']
-        missing_cols = [col for col in required_cols if col not in _storingen_df.columns]
+        missing_cols = [col for col in required_cols if col not in storings_df.columns]
         if missing_cols:
-            st.warning(f"Ontbrekende kolommen voor predictive analyse: {missing_cols}")
+            st.warning(f"Ontbrekende kolommen voor predictive analyse {bridge_name}: {missing_cols}")
+            return None
+
+        # Check if we have enough data
+        if len(storings_df) < 100:
+            st.warning(f"Te weinig data voor {bridge_name}: slechts {len(storings_df)} rijen (minimaal 100 nodig)")
             return None
 
         # Sorteer op tijd
-        df_sorted = _storingen_df.sort_values('time_local').reset_index(drop=True)
+        df_sorted = storings_df.sort_values('time_local').reset_index(drop=True)
 
         # Bereken tijdverschillen (interarrival times) in seconden
         df_sorted['time_diff'] = df_sorted['time_local'].diff().dt.total_seconds()
@@ -1195,10 +1244,19 @@ def prepare_predictive_data_single(_storingen_df, bridge_name):
         # Verwijder rijen met ontbrekende waarden
         final_df = features_df.dropna().reset_index(drop=True)
 
+        # Check if we have enough data after processing
+        if len(final_df) < 50:
+            st.warning(f"Te weinig complete observaties voor {bridge_name} na processing: {len(final_df)} rijen")
+            return None
+
+        st.success(f"✅ {len(final_df)} schone observaties voorbereid voor {bridge_name}")
         return final_df
 
+    except FileNotFoundError:
+        st.error(f"❌ Bestand niet gevonden voor {bridge_name}: {file_paths[bridge_name]}")
+        return None
     except Exception as e:
-        st.error(f"Fout bij voorbereiden predictive data: {e}")
+        st.error(f"❌ Fout bij voorbereiden predictive data voor {bridge_name}: {e}")
         return None
 
 
@@ -1302,27 +1360,22 @@ def safe_temporal_split_multiple(df, test_chunk_pct=0.05, buffer=10):
 def train_and_evaluate_models():
     """Train en evalueer Random Forest modellen voor predictive maintenance"""
 
-    # Bereid data voor op basis van selectie
-    with st.spinner("Data voorbereiden voor predictive modeling..."):
+    # Bereid data voor op basis van selectie - USING FRESH CLEAN DATA
+    with st.spinner("Fresh clean data inlezen en voorbereiden voor predictive modeling..."):
         if st.session_state.pm_config['data_source'] == "Alle bruggen gecombineerd":
             df_predictive = prepare_predictive_data_combined()
             data_source_info = "alle bruggen gecombineerd"
         else:
-            storings_map = {
-                "HGWBRN": st_HN,
-                "HGWBRZ": st_HZ,
-                "GWBR": st_GW
-            }
             selected_bridge = st.session_state.pm_config['selected_bridge']
-            storings_df = storings_map[selected_bridge]
-            df_predictive = prepare_predictive_data_single(storings_df, selected_bridge)
+            # USE THE NEW FUNCTION THAT READS FRESH DATA DIRECTLY FROM CSV
+            df_predictive = prepare_predictive_data_single(selected_bridge)
             data_source_info = selected_bridge
 
     if df_predictive is None or len(df_predictive) < 100:
-        st.warning(f"Niet genoeg data voor predictive modeling. Minimaal 100 complete observaties nodig.")
+        st.error(f"❌ Niet genoeg schone data voor predictive modeling. Minimaal 100 complete observaties nodig.")
         return
 
-    st.success(f"✅ {len(df_predictive)} observaties voorbereid voor modeling ({data_source_info})")
+    st.success(f"✅ {len(df_predictive)} SCHONE observaties voorbereid voor modeling ({data_source_info})")
 
     # Pas temporale split toe
     with st.spinner("Temporale split toepassen..."):
