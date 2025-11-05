@@ -717,7 +717,6 @@ with tab1:
         
         # Show statistics if train data is available
         if has_train_data and not daily_data.empty:
-            st.markdown("#### 📊 Statistieken")
             col_stat1, col_stat2, col_stat3 = st.columns(3)
             with col_stat1:
                 avg_storingen = daily_data['storingen_count'].mean()
