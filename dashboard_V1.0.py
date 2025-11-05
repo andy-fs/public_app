@@ -775,20 +775,69 @@ with tab1:
                            title=f"Storingen per dag – {st_choice}",
                            labels={"date":"Datum", "storingen_count":"Aantal storingen"})
         
-        st.plotly_chart(fig_s, use_container_width=True)
+        # Display the chart
+        chart = st.plotly_chart(fig_s, use_container_width=True)
         
         # Show statistics if train data is available
         if has_train_data and not daily_data.empty:
-            col_stat1, col_stat2, col_stat3 = st.columns(3)
+            st.markdown("#### 📊 Statistieken")
+            
+            # Get the current zoom state from the chart
+            try:
+                # Try to get the current zoom range from Plotly's event data
+                if hasattr(chart, '_last_event') and chart._last_event is not None:
+                    zoom_data = chart._last_event.get('xaxis', {})
+                    if 'range' in zoom_data:
+                        zoom_start = pd.to_datetime(zoom_data['range'][0])
+                        zoom_end = pd.to_datetime(zoom_data['range'][1])
+                        
+                        # Filter data to zoom range
+                        zoom_mask = (daily_data['date'] >= zoom_start.date()) & (daily_data['date'] <= zoom_end.date())
+                        zoomed_data = daily_data[zoom_mask]
+                        
+                        if len(zoomed_data) > 0:
+                            st.success(f"📊 Toon statistieken voor {len(zoomed_data)} dagen in zoomgebied")
+                            display_data = zoomed_data
+                        else:
+                            st.info("ℹ️ Geen data in zoomgebied - toon volledige dataset")
+                            display_data = daily_data
+                    else:
+                        st.info("ℹ️ Toon statistieken voor volledige dataset")
+                        display_data = daily_data
+                else:
+                    st.info("ℹ️ Toon statistieken voor volledige dataset")
+                    display_data = daily_data
+            except:
+                # Fallback if there's any error getting zoom data
+                st.info("ℹ️ Toon statistieken voor volledige dataset")
+                display_data = daily_data
+            
+            # Calculate statistics on the current display data
+            col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
             with col_stat1:
-                avg_storingen = daily_data['storingen_count'].mean()
+                avg_storingen = display_data['storingen_count'].mean()
                 st.metric("Gem. storingen/dag", f"{avg_storingen:.1f}")
             with col_stat2:
-                avg_treinen = daily_data['gem_treinen_per_uur'].mean()
+                avg_treinen = display_data['gem_treinen_per_uur'].mean()
                 st.metric("Gem. treinen/uur", f"{avg_treinen:.1f}")
             with col_stat3:
-                correlation = daily_data['storingen_count'].corr(daily_data['gem_treinen_per_uur'])
-                st.metric("Correlatie", f"{correlation:.2f}")
+                if len(display_data) > 1:
+                    correlation = display_data['storingen_count'].corr(display_data['gem_treinen_per_uur'])
+                    st.metric("Correlatie", f"{correlation:.2f}")
+                else:
+                    st.metric("Correlatie", "N/A")
+            with col_stat4:
+                total_days = len(display_data)
+                st.metric("Dagen in weergave", f"{total_days}")
+            
+            # Add date range info
+            if len(display_data) > 0:
+                date_range_start = display_data['date'].min()
+                date_range_end = display_data['date'].max()
+                st.caption(f"**Datumbereik:** {date_range_start} tot {date_range_end}")
+            
+            # Instructions for user
+            st.info("💡 **Tip:** Zoom in op de grafiek om statistieken voor een specifieke periode te zien")
 
 with tab2:
     st.markdown("### Meest voorkomende meldingen")
