@@ -485,7 +485,7 @@ else:
         title="Activiteit over tijd (op basis van statuswijzigingen)"
     )
     fig.update_traces(line_shape="hv")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 # --------------------
 # Laatste storingen – dropdown overzicht
@@ -536,7 +536,8 @@ st.markdown("## 🔄 Brugcycli (open/dicht)")
 candidate_words = ["Brug open", "bVrijgaveOpenen", "Heffen", "Opendraaien", "B_Openen", "F_bewegingswerk"]
 def find_candidates(df):
     cols = df[["tag1","tag2"]].astype(str).fillna("")
-    both = pd.unique(cols["tag1"].tolist() + cols["tag2"].tolist())
+    # FIX: Use np.unique instead of pd.unique for regular lists
+    both = np.unique(cols["tag1"].tolist() + cols["tag2"].tolist())
     hits = [c for c in both if any(w.lower() in c.lower() for w in candidate_words)]
     return hits
 
@@ -562,7 +563,7 @@ with col3:
         st.info("Geen episodes gedetecteerd voor dit signaal.")
     else:
         fig1 = px.bar(daily, x="date", y="count", labels={"date":"Datum","count":"Opens/dag"}, title="Brugopeningen per dag")
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, width='stretch')
 with col4:
     if daily.empty:
         st.info("Geen episodes gedetecteerd.")
@@ -570,11 +571,11 @@ with col4:
         fig2 = px.line(daily, x="date", y="avg_duration_s",
                        labels={"date":"Datum","avg_duration_s":"Gem. duur (sec.)"},
                        title="Gemiddelde duur brugopening per dag")
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width='stretch')
 
 if not episodes.empty:
     fig3 = px.histogram(episodes, x="duration_s", nbins=2500, title="Histogram tijdsduur brugopeningen (sec.)", labels={"duration_s": "Tijdsduur (sec.)", "count": "Frequentie"})
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width='stretch')
 
 
     total_episodes = len(episodes)
@@ -622,11 +623,11 @@ else:
     with col5:
         figc1 = px.bar(d_all, x="date", y="count", color="bridge", barmode="group",
                        title="Opens per dag per brug", labels={"date":"Datum","count":"Frequentie"})
-        st.plotly_chart(figc1, use_container_width=True)
+        st.plotly_chart(figc1, width='stretch')
     with col6:
         figc2 = px.line(d_all, x="date", y="avg_duration_s", color="bridge",
                         title="Gem. duur per dag per brug", labels={"date":"Datum","avg_duration_s":"Duur (sec.)"})
-        st.plotly_chart(figc2, use_container_width=True)
+        st.plotly_chart(figc2, width='stretch')
 
 # --------------------
 # Storingen
@@ -641,9 +642,12 @@ tab1, tab2 = st.tabs(["Tijdlijn & volume", "Top meldingen"])
 with tab1:
     st.markdown("### Volume door de tijd")
     st_choice = st.selectbox("Kies storingsbron", options=["GWBR", "HGWBRN", "HGWBRZ"], index=0, key="st_src")
-    st_df = {"HGWBRN": st_HN, "HGWBRZ": st_HZ, "GWBR": st_GW}[st_choice]
     
-    # Try to add train data directly
+    # Create a clean copy for display - DON'T modify the original st_df!
+    st_df_original = {"HGWBRN": st_HN, "HGWBRZ": st_HZ, "GWBR": st_GW}[st_choice]
+    st_df = st_df_original.copy()  # Work with a copy to avoid contaminating original data
+    
+    # Try to add train data directly - SAFE VERSION
     try:
         file_paths = {
             "HGWBRN": "data/Storingen_HGWBRN_edited.csv",
@@ -653,12 +657,13 @@ with tab1:
         
         st_df_edited = pd.read_csv(file_paths[st_choice], sep=';', encoding='latin1')
         
-        # SIMPLE: Just copy the Trein and Trein_cum columns if row counts match
+        # SAFE: Only add train data to our display copy and ensure proper data types
         if len(st_df) == len(st_df_edited):
             if 'Trein' in st_df_edited.columns:
-                st_df['Trein'] = st_df_edited['Trein'].values
+                # Convert to numeric to avoid string contamination
+                st_df['Trein'] = pd.to_numeric(st_df_edited['Trein'], errors='coerce').fillna(0)
             if 'Trein_cum' in st_df_edited.columns:
-                st_df['Trein_cum'] = st_df_edited['Trein_cum'].values
+                st_df['Trein_cum'] = pd.to_numeric(st_df_edited['Trein_cum'], errors='coerce').fillna(0)
                 has_cum_data = True
             else:
                 has_cum_data = False
@@ -687,7 +692,7 @@ with tab1:
             if has_cum_data:
                 # For cumulative data, we need to handle it differently since it's cumulative between failures
                 # We'll take the sum of Trein_cum for the selected period
-                st_df['date'] = st_df['time_local'].dt.date
+                st_df['date'] = st_df["time_local"].dt.date
                 daily_cum_data = st_df.groupby('date')['Trein_cum'].sum().reset_index()
                 daily_data = daily_data.merge(daily_cum_data, on='date', how='left')
         else:
@@ -826,7 +831,7 @@ with tab1:
                            labels={"date":"Datum", "storingen_count":"Aantal storingen"})
         
         # Display the chart
-        st.plotly_chart(fig_s, use_container_width=True)
+        st.plotly_chart(fig_s, width='stretch')
         
         # Show statistics for selected date range
         if has_train_data and not daily_data.empty:            
@@ -902,7 +907,7 @@ with tab2:
             st.markdown(f"{b}")
             fig_top = px.bar(sub, x="count", y="MsgText", orientation="h", title=f"Top {n_top} storingsmeldingen – {b}",
                              labels={"count":"Aantal","MsgText":"Melding"})
-            st.plotly_chart(fig_top, use_container_width=True)
+            st.plotly_chart(fig_top, width='stretch')
 
     # (de uitgebreide follow-up analyse blijft, zoals in het origineel, binnen tab2)
     st.markdown("### Top 5 storingen + meest voorkomende follow-up storingen")
@@ -997,7 +1002,7 @@ with tab2:
                     "followup_msg": "Meest voorkomende follow-up",
                     "followup_count": "Aantal follow-ups",
                     "followup_pct": "Share follow-up"
-                }), use_container_width=True)
+                }), width='stretch')
 
         long_rows = []
         for _, r in followup_df.iterrows():
@@ -1011,7 +1016,7 @@ with tab2:
                             text="count")
         fig_follow.update_traces(hovertemplate="<b>%{y}</b><br>%{x} items<br>%{customdata}",
                                  customdata=long_df["note"])
-        st.plotly_chart(fig_follow, use_container_width=True)
+        st.plotly_chart(fig_follow, width='stretch')
 
         for _, r in followup_df.iterrows():
             follow_pct = f"{r['followup_share'] * 100:.1f}%"
@@ -1611,7 +1616,7 @@ def train_and_evaluate_models():
                         title='Top 15 Features - Tijd Voorspelling',
                         labels={'importance': 'Belangrijkheid', 'feature': 'Feature'}
                     )
-                    st.plotly_chart(fig_y1_imp, use_container_width=True)
+                    st.plotly_chart(fig_y1_imp, width='stretch')
 
 
                 with col_imp2:
@@ -1630,7 +1635,7 @@ def train_and_evaluate_models():
                         title='Top 15 Features - Storingstype Voorspelling',
                         labels={'importance': 'Belangrijkheid', 'feature': 'Feature'}
                     )
-                    st.plotly_chart(fig_y2_imp, use_container_width=True)
+                    st.plotly_chart(fig_y2_imp, width='stretch')
 
 
         # --------------------
@@ -1728,7 +1733,7 @@ def train_and_evaluate_models():
                 margin=dict(l=20, r=20, t=50, b=50),
                 height=400
             )
-            st.plotly_chart(fig_time_intervals, use_container_width=True)
+            st.plotly_chart(fig_time_intervals, width='stretch')
 
             # Statistics...
 
@@ -1754,7 +1759,7 @@ def train_and_evaluate_models():
                 height=400,
                 yaxis={'categoryorder': 'total ascending'}
             )
-            st.plotly_chart(fig_failure_types, use_container_width=True)
+            st.plotly_chart(fig_failure_types, width='stretch')
 
 
         # Download voorspellingen
