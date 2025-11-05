@@ -1249,7 +1249,7 @@ def prepare_predictive_data_single(bridge_name):
             st.warning(f"Te weinig complete observaties voor {bridge_name} na processing: {len(final_df)} rijen")
             return None
 
-        st.success(f"✅ {len(final_df)} schone observaties voorbereid voor {bridge_name}")
+        st.success(f"✅ {len(final_df)} observaties voorbereid voor {bridge_name}")
         return final_df
 
     except FileNotFoundError:
@@ -1374,8 +1374,6 @@ def train_and_evaluate_models():
     if df_predictive is None or len(df_predictive) < 100:
         st.error(f"❌ Niet genoeg schone data voor predictive modeling. Minimaal 100 complete observaties nodig.")
         return
-
-    st.success(f"✅ {len(df_predictive)} SCHONE observaties voorbereid voor modeling ({data_source_info})")
 
     # Pas temporale split toe
     with st.spinner("Temporale split toepassen..."):
