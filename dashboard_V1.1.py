@@ -30,19 +30,31 @@ import openpyxl
 import plotly.graph_objects as go
 
 
-# Safe dataframe display that converts everything to strings
-def safe_st_dataframe(df):
+def safe_st_dataframe(df, max_rows=1000, description="", **kwargs):
+    """
+    Safely display dataframe without Arrow serialization errors
+    Accepts any kwargs for st.dataframe()
+    """
     if df is None or len(df) == 0:
+        st.info(f"Geen data om weer te geven{description}")
         return
+    
     try:
+        # Create a clean copy
         display_df = df.head(max_rows).copy()
-        # Convert ALL columns to strings to avoid Arrow issues
+        
+        # Convert ALL columns to strings
         for col in display_df.columns:
             display_df[col] = display_df[col].astype(str)
-        safe_st_dataframe(display_df)
-    except Exception:
-        # Fallback: just show the shape
-        st.write(f"Data shape: {df.shape}")
+        
+        # Display the safe dataframe with any kwargs
+        st.dataframe(display_df, **kwargs)
+        
+    except Exception as e:
+        # Ultimate fallback
+        st.write(f"📊 Data overzicht ({description}):")
+        st.write(f"- Rijen: {len(df)}")
+        st.write(f"- Kolommen: {list(df.columns)}")
 
 
 # --------------------
