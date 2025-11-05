@@ -652,126 +652,99 @@ with tab1:
             "GWBR": "data/Storingen_GWBR_edited.csv"
         }
         
-        # Load with latin1 encoding (which worked)
+        # Load with latin1 encoding
         st_df_edited = pd.read_csv(file_paths[st_choice], sep=';', encoding='latin1')
         st.success("✅ Edited data geladen")
         
-        # Parse datetime - use ISO format that matches your data
-        st_df_edited['time_local'] = pd.to_datetime(st_df_edited['TimeString'], format='%Y-%m-%d %H:%M:%S')
-        
-        # For edited data, assume it's already in Europe/Amsterdam timezone (no conversion needed)
-        # Just localize it to make it timezone-aware
-        st_df_edited['time_local'] = st_df_edited['time_local'].dt.tz_localize('Europe/Amsterdam')
-        
         has_train_data = 'Trein' in st_df_edited.columns
         
-        # Debug info
-        st.sidebar.write(f"Edited data rijen: {len(st_df_edited)}")
-        st.sidebar.write(f"Trein kolom aanwezig: {has_train_data}")
         if has_train_data:
-            st.sidebar.write(f"Trein data range: {st_df_edited['Trein'].min():.1f} - {st_df_edited['Trein'].max():.1f}")
-            st.sidebar.write(f"Eerste datum: {st_df_edited['time_local'].min()}")
-            st.sidebar.write(f"Laatste datum: {st_df_edited['time_local'].max()}")
-            
+            # SIMPLE APPROACH: Just take the Trein column and add it to the original st_df
+            # Since both datasets are sorted by time and should have the same number of rows
+            if len(st_df) == len(st_df_edited):
+                st_df['Trein'] = st_df_edited['Trein'].values
+                st.success("✅ Trein data toegevoegd aan storingsdata")
+            else:
+                st.warning(f"Aantal rijen komt niet overeen: storings={len(st_df)}, edited={len(st_df_edited)}")
+                has_train_data = False
+                
     except Exception as e:
         st.warning(f"Kon edited storingsdata niet laden: {e}")
         has_train_data = False
-        st_df_edited = None
     
     if st_df.empty or st_df["time_local"].isna().all():
         st.info("Geen storingsdata of geen parsebare tijd.")
     else:
-        # Daily storings counts from original data
-        s_daily = st_df.assign(date=st_df["time_local"].dt.date).groupby("date").size().reset_index(name="storingen_count")
+        # Daily storings counts and average trains
+        daily_data = st_df.assign(date=st_df["time_local"].dt.date).groupby("date").agg(
+            storingen_count=('time_local', 'count'),
+            gem_treinen_per_uur=('Trein', 'mean') if has_train_data else ('time_local', 'count')  # dummy if no train data
+        ).reset_index()
         
-        if has_train_data and st_df_edited is not None and not st_df_edited.empty:
-            # Prepare train data - aggregate by date
-            st_df_edited['date'] = st_df_edited['time_local'].dt.date
-            train_daily = st_df_edited.groupby('date')['Trein'].mean().reset_index()
-            train_daily = train_daily.rename(columns={'Trein': 'gem_treinen_per_uur'})
+        if has_train_data:
+            # Create dual-axis plot
+            fig_s = go.Figure()
             
-            # Merge storings and train data
-            merged_data = s_daily.merge(train_daily, on='date', how='left')
+            # Storings count (left axis)
+            fig_s.add_trace(go.Scatter(
+                x=daily_data['date'],
+                y=daily_data['storingen_count'],
+                name='Aantal storingen',
+                line=dict(color='red', width=2),
+                yaxis='y1'
+            ))
             
-            # Remove rows where we don't have both storings and train data
-            merged_data = merged_data.dropna(subset=['storingen_count', 'gem_treinen_per_uur'])
+            # Train traffic (right axis)
+            fig_s.add_trace(go.Scatter(
+                x=daily_data['date'],
+                y=daily_data['gem_treinen_per_uur'],
+                name='Gem. treinen per uur',
+                line=dict(color='blue', width=1.5, dash='dot'),
+                yaxis='y2'
+            ))
             
-            if not merged_data.empty:
-                # Create dual-axis plot
-                fig_s = go.Figure()
-                
-                # Storings count (left axis)
-                fig_s.add_trace(go.Scatter(
-                    x=merged_data['date'],
-                    y=merged_data['storingen_count'],
-                    name='Aantal storingen',
-                    line=dict(color='red', width=2),
-                    yaxis='y1'
-                ))
-                
-                # Train traffic (right axis)
-                fig_s.add_trace(go.Scatter(
-                    x=merged_data['date'],
-                    y=merged_data['gem_treinen_per_uur'],
-                    name='Gem. treinen per uur',
-                    line=dict(color='blue', width=1.5, dash='dot'),
-                    yaxis='y2'
-                ))
-                
-                fig_s.update_layout(
-                    title=f"Storingen en treinverkeer per dag – {st_choice}",
-                    xaxis=dict(title="Datum"),
-                    yaxis=dict(
-                        title="Aantal storingen",
-                        titlefont=dict(color="red"),
-                        tickfont=dict(color="red")
-                    ),
-                    yaxis2=dict(
-                        title="Gem. treinen per uur",
-                        titlefont=dict(color="blue"),
-                        tickfont=dict(color="blue"),
-                        overlaying="y",
-                        side="right"
-                    ),
-                    legend=dict(x=0, y=1.1, orientation="h")
-                )
-                
-                st.plotly_chart(fig_s, use_container_width=True)
-                
-                # Show statistics
-                st.markdown("#### 📊 Statistieken")
-                col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-                with col_stat1:
-                    avg_storingen = merged_data['storingen_count'].mean()
-                    st.metric("Gem. storingen/dag", f"{avg_storingen:.1f}")
-                with col_stat2:
-                    avg_treinen = merged_data['gem_treinen_per_uur'].mean()
-                    st.metric("Gem. treinen/uur", f"{avg_treinen:.1f}")
-                with col_stat3:
-                    correlation = merged_data['storingen_count'].corr(merged_data['gem_treinen_per_uur'])
-                    st.metric("Correlatie", f"{correlation:.2f}")
-                with col_stat4:
-                    total_days = len(merged_data)
-                    st.metric("Dagen data", f"{total_days}")
-                
-                # Show data table
-                with st.expander("📋 Bekijk samengevoegde data"):
-                    st.dataframe(merged_data.sort_values('date', ascending=False))
-                    
-            else:
-                st.warning("Geen overlappende data tussen storingen en treinverkeer")
-                # Fallback to single plot
-                fig_s = px.area(s_daily, x="date", y="storingen_count", 
-                               title=f"Storingen per dag – {st_choice}",
-                               labels={"date":"Datum", "storingen_count":"Aantal storingen"})
-                st.plotly_chart(fig_s, use_container_width=True)
+            fig_s.update_layout(
+                title=f"Storingen en treinverkeer per dag – {st_choice}",
+                xaxis=dict(title="Datum"),
+                yaxis=dict(
+                    title="Aantal storingen",
+                    titlefont=dict(color="red"),
+                    tickfont=dict(color="red")
+                ),
+                yaxis2=dict(
+                    title="Gem. treinen per uur",
+                    titlefont=dict(color="blue"),
+                    tickfont=dict(color="blue"),
+                    overlaying="y",
+                    side="right"
+                ),
+                legend=dict(x=0, y=1.1, orientation="h")
+            )
             
         else:
             # Fallback to single plot if no train data
-            fig_s = px.area(s_daily, x="date", y="storingen_count", 
+            fig_s = px.area(daily_data, x="date", y="storingen_count", 
                            title=f"Storingen per dag – {st_choice}",
                            labels={"date":"Datum", "storingen_count":"Aantal storingen"})
-            st.plotly_chart(fig_s, use_container_width=True)
+        
+        st.plotly_chart(fig_s, use_container_width=True)
+        
+        # Show statistics if train data is available
+        if has_train_data:
+            st.markdown("#### 📊 Statistieken")
+            col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+            with col_stat1:
+                avg_storingen = daily_data['storingen_count'].mean()
+                st.metric("Gem. storingen/dag", f"{avg_storingen:.1f}")
+            with col_stat2:
+                avg_treinen = daily_data['gem_treinen_per_uur'].mean()
+                st.metric("Gem. treinen/uur", f"{avg_treinen:.1f}")
+            with col_stat3:
+                correlation = daily_data['storingen_count'].corr(daily_data['gem_treinen_per_uur'])
+                st.metric("Correlatie", f"{correlation:.2f}")
+            with col_stat4:
+                total_days = len(daily_data)
+                st.metric("Dagen data", f"{total_days}")
 
 with tab2:
     st.markdown("### Meest voorkomende meldingen")
