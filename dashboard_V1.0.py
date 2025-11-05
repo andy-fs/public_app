@@ -843,9 +843,6 @@ with tab1:
                 days_with_data = len(display_data)
                 st.metric("Aantal observaties", f"{days_with_data}")
             
-            # Add date range info (simplified)
-            st.caption(f"**Datumbereik:** {display_data['date'].min()} tot {display_data['date'].max()}")
-
 with tab2:
     st.markdown("### Meest voorkomende meldingen")
     n_top = st.slider("Top N", min_value=5, max_value=30, value=10, step=1)
