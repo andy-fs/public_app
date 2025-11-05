@@ -11,6 +11,11 @@
 # - Storingen: tijdlijn, top-berichten
 # - Downloads van afgeleide tabellen
 # - ...
+# ===== COMPLETE WARNING SUPPRESSION =====
+import warnings
+warnings.filterwarnings("ignore")
+import os
+os.environ['PYTHONWARNINGS'] = 'ignore'
 
 import os
 import re
@@ -23,6 +28,24 @@ from datetime import timedelta
 import plotly.express as px
 import openpyxl
 import plotly.graph_objects as go
+
+
+# Safe dataframe display that converts everything to strings
+def safe_st_dataframe(df):
+    if df is None or len(df) == 0:
+        return
+    try:
+        display_df = df.head(max_rows).copy()
+        # Convert ALL columns to strings to avoid Arrow issues
+        for col in display_df.columns:
+            display_df[col] = display_df[col].astype(str)
+        safe_st_dataframe(display_df)
+    except Exception:
+        # Fallback: just show the shape
+        st.write(f"Data shape: {df.shape}")
+
+# Use it like this:
+safe_st_dataframe(your_dataframe)
 
 # --------------------
 # Page & Style
@@ -994,7 +1017,7 @@ with tab2:
     else:
         followup_df_display = followup_df.copy()
         followup_df_display["followup_pct"] = (followup_df_display["followup_share"] * 100).round(1).astype(str) + "%"
-        st.dataframe(
+        safe_st_dataframe(
             followup_df_display[["base_msg", "base_count", "followup_msg", "followup_count", "followup_pct"]].rename(
                 columns={
                     "base_msg": "Basis storing",
@@ -1480,7 +1503,7 @@ def train_and_evaluate_models():
                 st.write("**HGWBRN (voorbeeld van originele storingsdata):**")
                 display_df = safe_display_simple(st_HN)
                 if display_df is not None:
-                    st.dataframe(display_df)
+                    safe_st_dataframe(display_df)
                 else:
                     st.info("Kon data niet weergeven")
             else:
@@ -1510,7 +1533,7 @@ def train_and_evaluate_models():
                 st.write(f"**{selected_bridge} (originele storingsdata):**")
                 display_df = safe_display_simple(storings_df)
                 if display_df is not None:
-                    st.dataframe(display_df)
+                    safe_st_dataframe(display_df)
                 else:
                     st.info("Kon data niet weergeven")
                     
