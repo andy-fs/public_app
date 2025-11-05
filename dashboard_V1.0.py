@@ -31,6 +31,17 @@ st.set_page_config(
     page_title="ProRail Bruggen Dashboard",
     layout="wide",
 )
+st.markdown(
+    """
+    <style>
+    .small-muted { color:#6b7280; font-size:0.9rem; }
+    .metric-card { padding:0.75rem 1rem; border-radius:1rem; background:#f8fafc; border:1px solid #e5e7eb; }
+    .section { margin-top:1.5rem; }
+    .pill { display:inline-block; padding:0.2rem 0.6rem; background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; border-radius:999px; font-size:0.8rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # --------------------
 # Helpers
