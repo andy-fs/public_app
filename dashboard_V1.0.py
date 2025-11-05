@@ -718,24 +718,20 @@ with tab1:
                 secondary_y=True,
             )
             
-            # Set axis titles with dynamic scaling
+            # Set axis titles - REMOVE fixed ranges to allow dynamic scaling
             fig_s.update_xaxes(title_text="Datum")
-            
-            # Configure y-axes for dynamic scaling with 0 minimum
-            max_storingen = daily_data['storingen_count'].max()
-            max_treinen = daily_data['gem_treinen_per_uur'].max()
             
             fig_s.update_yaxes(
                 title_text="Aantal storingen", 
                 secondary_y=False,
-                range=[0, max_storingen * 1.1],  # Always start at 0, add 10% padding
+                # REMOVE fixed range to allow dynamic scaling when zooming
                 fixedrange=False  # Allow zooming
             )
             
             fig_s.update_yaxes(
                 title_text="Gem. treinen per uur", 
                 secondary_y=True,
-                range=[0, max_treinen * 1.1],  # Always start at 0, add 10% padding
+                # REMOVE fixed range to allow dynamic scaling when zooming
                 fixedrange=False  # Allow zooming
             )
             
@@ -745,19 +741,22 @@ with tab1:
                 # Better zoom synchronization
                 xaxis=dict(
                     rangeslider=dict(visible=True),
-                    type="date"
+                    type="date",
+                    autorange=True  # Allow automatic range adjustment
                 ),
                 # Link both y-axes to the same x-axis for better zoom behavior
                 yaxis=dict(
                     title="Aantal storingen",
                     side="left",
-                    showgrid=True
+                    showgrid=True,
+                    autorange=True  # Allow automatic range adjustment
                 ),
                 yaxis2=dict(
                     title="Gem. treinen per uur", 
                     side="right",
                     overlaying="y",
-                    showgrid=False  # Avoid grid line overlap
+                    showgrid=False,  # Avoid grid line overlap
+                    autorange=True  # Allow automatic range adjustment
                 ),
                 # Better hover behavior
                 hovermode='x unified',
@@ -775,44 +774,39 @@ with tab1:
                            title=f"Storingen per dag – {st_choice}",
                            labels={"date":"Datum", "storingen_count":"Aantal storingen"})
         
-        # Display the chart
-        chart = st.plotly_chart(fig_s, use_container_width=True)
+        # Display the chart and capture zoom events
+        event = st.plotly_chart(fig_s, use_container_width=True, on_select="rerun", key=f"zoom_chart_{st_choice}")
         
-        # Show statistics if train data is available
+        # Initialize display_data with full dataset
+        display_data = daily_data.copy()
+        zoom_info = "volledige dataset"
+        
+        # Check if user has zoomed
+        if event.selection:
+            try:
+                # Get the zoom range from the selection event
+                x_range = event.selection["x"]
+                if x_range:
+                    zoom_start = pd.to_datetime(x_range[0])
+                    zoom_end = pd.to_datetime(x_range[1])
+                    
+                    # Filter data to zoom range
+                    zoom_mask = (daily_data['date'] >= zoom_start.date()) & (daily_data['date'] <= zoom_end.date())
+                    zoomed_data = daily_data[zoom_mask]
+                    
+                    if len(zoomed_data) > 0:
+                        display_data = zoomed_data
+                        zoom_info = f"gezoomde periode ({len(zoomed_data)} dagen)"
+                    else:
+                        zoom_info = "volledige dataset (geen data in zoom)"
+            except Exception as e:
+                st.sidebar.warning(f"Zoom error: {e}")
+                zoom_info = "volledige dataset (error)"
+        
+        # Show statistics based on current display data
         if has_train_data and not daily_data.empty:
             st.markdown("#### 📊 Statistieken")
             
-            # Get the current zoom state from the chart
-            try:
-                # Try to get the current zoom range from Plotly's event data
-                if hasattr(chart, '_last_event') and chart._last_event is not None:
-                    zoom_data = chart._last_event.get('xaxis', {})
-                    if 'range' in zoom_data:
-                        zoom_start = pd.to_datetime(zoom_data['range'][0])
-                        zoom_end = pd.to_datetime(zoom_data['range'][1])
-                        
-                        # Filter data to zoom range
-                        zoom_mask = (daily_data['date'] >= zoom_start.date()) & (daily_data['date'] <= zoom_end.date())
-                        zoomed_data = daily_data[zoom_mask]
-                        
-                        if len(zoomed_data) > 0:
-                            st.success(f"📊 Toon statistieken voor {len(zoomed_data)} dagen in zoomgebied")
-                            display_data = zoomed_data
-                        else:
-                            st.info("ℹ️ Geen data in zoomgebied - toon volledige dataset")
-                            display_data = daily_data
-                    else:
-                        st.info("ℹ️ Toon statistieken voor volledige dataset")
-                        display_data = daily_data
-                else:
-                    st.info("ℹ️ Toon statistieken voor volledige dataset")
-                    display_data = daily_data
-            except:
-                # Fallback if there's any error getting zoom data
-                st.info("ℹ️ Toon statistieken voor volledige dataset")
-                display_data = daily_data
-            
-            # Calculate statistics on the current display data
             col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
             with col_stat1:
                 avg_storingen = display_data['storingen_count'].mean()
@@ -828,16 +822,16 @@ with tab1:
                     st.metric("Correlatie", "N/A")
             with col_stat4:
                 total_days = len(display_data)
-                st.metric("Dagen in weergave", f"{total_days}")
+                st.metric("Dagen", f"{total_days}")
             
             # Add date range info
             if len(display_data) > 0:
                 date_range_start = display_data['date'].min()
                 date_range_end = display_data['date'].max()
-                st.caption(f"**Datumbereik:** {date_range_start} tot {date_range_end}")
+                st.caption(f"**Datumbereik:** {date_range_start} tot {date_range_end} ({zoom_info})")
             
             # Instructions for user
-            st.info("💡 **Tip:** Zoom in op de grafiek om statistieken voor een specifieke periode te zien")
+            st.info("💡 **Tip:** Zoom in op de grafiek (sleep horizontaal) en de statistieken updaten automatisch!")
 
 with tab2:
     st.markdown("### Meest voorkomende meldingen")
