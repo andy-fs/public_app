@@ -846,10 +846,10 @@ with tab1:
             
             with col_stat1:
                 avg_storingen = display_data['storingen_count'].mean()
-                st.metric("Gem. storingen/dag", f"{avg_storingen:.1f}")
+                st.metric("Gem. storingen/dag brug", f"{avg_storingen:.1f}")
             with col_stat2:
                 avg_treinen = display_data['gem_treinen_per_uur'].mean()
-                st.metric("Gem. treinen/uur", f"{avg_treinen:.1f}")
+                st.metric("Gem. treinen/uur traject", f"{avg_treinen:.1f}")
             with col_stat3:
                 if len(display_data) > 1:
                     correlation = display_data['storingen_count'].corr(display_data['gem_treinen_per_uur'])
