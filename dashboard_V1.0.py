@@ -387,9 +387,9 @@ tags2 = sorted([t for t in df_sel["tag2"].dropna().unique() if str(t).strip() !=
 col1, col2 = st.columns(2)
 
 with col1:
-    # Set default to Noodknop if available, otherwise first alphabetical
+    # Set default to Noostnop if available, otherwise first alphabetical
     default_tag1 = []
-    preferred_tags = ["Noodknop", "Bedienbrugpost"]
+    preferred_tags = ["Noodstop", "Bedienbrugpost"]
     for pref_tag in preferred_tags:
         if pref_tag in tags1:
             default_tag1 = [pref_tag]
@@ -414,7 +414,7 @@ key_tag2 = f"tag2_{bridge_choice}_{'_'.join(tag1_pick) if tag1_pick else 'all'}"
 with col2:
     # Set default to emergency-related tags if available
     default_tag2 = []
-    preferred_tags2 = ["bNS_OK", "bNSknop_OK", "bCmdOpenen"]
+    preferred_tags2 = ["bNSknop_OK", "bCmdOpenen"]
     
     # Check if any preferred tags are available
     available_preferred = [tag for tag in preferred_tags2 if tag in valid_tag2]
