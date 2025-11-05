@@ -10,6 +10,7 @@
 # - Daily opens & gemiddelde duur per dag (vergelijking bruggen)
 # - Storingen: tijdlijn, top-berichten
 # - Downloads van afgeleide tabellen
+# - ...
 
 import os
 import re
@@ -30,70 +31,6 @@ st.set_page_config(
     page_title="ProRail Bruggen Dashboard",
     layout="wide",
 )
-st.markdown(
-    """
-    <style>
-    .small-muted { color:#6b7280; font-size:0.9rem; }
-    .metric-card { padding:0.75rem 1rem; border-radius:1rem; background:#f8fafc; border:1px solid #e5e7eb; }
-    .section { margin-top:1.5rem; }
-    .pill { display:inline-block; padding:0.2rem 0.6rem; background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; border-radius:999px; font-size:0.8rem; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown("""
-<style>
-/* Mobile optimization */
-@media (max-width: 768px) {
-    /* Main container padding */
-    .main .block-container {
-        padding-top: 1rem;
-        padding-right: 1rem;
-        padding-left: 1rem;
-        padding-bottom: 1rem;
-    }
-    
-    /* Reduce chart sizes */
-    .js-plotly-plot {
-        width: 100% !important;
-    }
-    
-    /* Make buttons full width */
-    .stButton>button {
-        width: 100%;
-    }
-    
-    /* Adjust dataframe font size */
-    .stDataFrame {
-        font-size: 12px;
-    }
-    
-    /* Adjust column layouts */
-    .row-widget.stColumns {
-        flex-direction: column;
-    }
-    
-    /* Reduce header sizes */
-    h1 {
-        font-size: 1.5rem !important;
-    }
-    h2 {
-        font-size: 1.3rem !important;
-    }
-    h3 {
-        font-size: 1.1rem !important;
-    }
-}
-
-/* Desktop specific */
-@media (min-width: 769px) {
-    .main .block-container {
-        max-width: 1200px;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
 
 # --------------------
 # Helpers
