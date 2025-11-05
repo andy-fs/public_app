@@ -42,6 +42,59 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown("""
+<style>
+/* Mobile optimization */
+@media (max-width: 768px) {
+    /* Main container padding */
+    .main .block-container {
+        padding-top: 1rem;
+        padding-right: 1rem;
+        padding-left: 1rem;
+        padding-bottom: 1rem;
+    }
+    
+    /* Reduce chart sizes */
+    .js-plotly-plot {
+        width: 100% !important;
+    }
+    
+    /* Make buttons full width */
+    .stButton>button {
+        width: 100%;
+    }
+    
+    /* Adjust dataframe font size */
+    .stDataFrame {
+        font-size: 12px;
+    }
+    
+    /* Adjust column layouts */
+    .row-widget.stColumns {
+        flex-direction: column;
+    }
+    
+    /* Reduce header sizes */
+    h1 {
+        font-size: 1.5rem !important;
+    }
+    h2 {
+        font-size: 1.3rem !important;
+    }
+    h3 {
+        font-size: 1.1rem !important;
+    }
+}
+
+/* Desktop specific */
+@media (min-width: 769px) {
+    .main .block-container {
+        max-width: 1200px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --------------------
 # Helpers
 # --------------------
@@ -352,8 +405,9 @@ except Exception as e:
 # --------------------
 st.title("🚉 ProRail Bruggen Dashboard")
 st.caption("Hoge Gouwespoorbrug Noord/Zuid (hefbrug) & Lage Gouwespoorbrug (draaibrug).")
+st.caption("Probeer vooral te zoomen en rond te klikken (op de legenda's).")
+st.caption("Tip voor mobile users: activeer Desktopsite via je browser instellingen voor deze website.")
 
-# ❌ VERWIJDERD op verzoek: 'rijen/kolommen' metrics-blok met 3 kolommen
 
 # --------------------
 # Sensor: selectie & time series
@@ -1046,12 +1100,7 @@ def train_and_evaluate_models():
     with st.spinner("Temporale split toepassen..."):
         split_result = safe_temporal_split_multiple(df_predictive, test_chunk_pct=0.05, buffer=10)
 
-    # --------------------
-    # Data Overzicht with Last Observations Dropdown
-    # --------------------
-    # --------------------
-    # Data Overzicht with Last Observations Dropdown
-    # --------------------
+
     # --------------------
     # Data Overzicht with Last Observations Dropdown
     # --------------------
