@@ -774,9 +774,7 @@ with tab1:
         st.plotly_chart(fig_s, use_container_width=True)
         
         # Show statistics for full dataset
-        if has_train_data and not daily_data.empty:
-            st.markdown("#### 📊 Statistieken (volledige dataset)")
-            
+        if has_train_data and not daily_data.empty:            
             col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
             with col_stat1:
                 avg_storingen = daily_data['storingen_count'].mean()
@@ -791,8 +789,16 @@ with tab1:
                 else:
                     st.metric("Correlatie", "N/A")
             with col_stat4:
-                total_days = len(daily_data)
-                st.metric("Totaal dagen", f"{total_days}")
+                # Show days with data vs total date range
+                if len(daily_data) > 0:
+                    days_with_data = len(daily_data)
+                    total_date_range = (daily_data['date'].max() - daily_data['date'].min()).days + 1
+                    st.metric("Dagen met data", f"{days_with_data}")
+                    # Optional: also show the coverage percentage
+                    coverage_pct = (days_with_data / total_date_range) * 100
+                    st.caption(f"{coverage_pct:.1f}% van {total_date_range} dagen")
+                else:
+                    st.metric("Dagen met data", "0")
             
             # Add date range info
             date_range_start = daily_data['date'].min()
