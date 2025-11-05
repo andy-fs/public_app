@@ -389,7 +389,7 @@ col1, col2 = st.columns(2)
 with col1:
     # Set default to exact matches - FIXED LOGIC
     default_tag1 = []
-    preferred_tags = ["Noodstop"]  # Only Noodstop as requested
+    preferred_tags = ["Bedienmodeselectie"]
     
     # Check for exact matches
     for pref_tag in preferred_tags:
@@ -418,7 +418,7 @@ key_tag2 = f"tag2_{bridge_choice}_{'_'.join(tag1_pick) if tag1_pick else 'all'}"
 with col2:
     # Set default to exact emergency-related tags - FIXED LOGIC
     default_tag2 = []
-    preferred_tags2 = ["bNSknop_OK"]  # Only bNSknop_OK as requested
+    preferred_tags2 = ["bOk"]
     
     # Check for exact matches in available tags
     for pref_tag in preferred_tags2:
