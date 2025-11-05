@@ -686,44 +686,91 @@ with tab1:
             
             fig_s = make_subplots(specs=[[{"secondary_y": True}]])
             
-            # Add storingen trace
+            # Add storingen trace with better hover info
             fig_s.add_trace(
-                go.Scatter(x=daily_data['date'], y=daily_data['storingen_count'], 
-                          name="Aantal storingen", line=dict(color='red')),
+                go.Scatter(
+                    x=daily_data['date'], 
+                    y=daily_data['storingen_count'], 
+                    name="Aantal storingen", 
+                    line=dict(color='red'),
+                    hovertemplate=(
+                        "<b>Datum:</b> %{x}<br>" +
+                        "<b>Storingen:</b> %{y}<br>" +
+                        "<extra></extra>"
+                    )
+                ),
                 secondary_y=False,
             )
             
-            # Add treinen trace
+            # Add treinen trace with better hover info
             fig_s.add_trace(
-                go.Scatter(x=daily_data['date'], y=daily_data['gem_treinen_per_uur'], 
-                          name="Gem. treinen per uur", line=dict(color='blue', dash='dot')),
+                go.Scatter(
+                    x=daily_data['date'], 
+                    y=daily_data['gem_treinen_per_uur'], 
+                    name="Gem. treinen per uur", 
+                    line=dict(color='blue', dash='dot'),
+                    hovertemplate=(
+                        "<b>Datum:</b> %{x}<br>" +
+                        "<b>Treinen/uur:</b> %{y:.1f}<br>" +
+                        "<extra></extra>"
+                    )
+                ),
                 secondary_y=True,
             )
             
-            # Set axis titles
+            # Set axis titles with dynamic scaling
             fig_s.update_xaxes(title_text="Datum")
-            fig_s.update_yaxes(title_text="Aantal storingen", secondary_y=False)
-            fig_s.update_yaxes(title_text="Gem. treinen per uur", secondary_y=True)
             
-            # Add synchronization for zooming
+            # Configure y-axes for dynamic scaling with 0 minimum
+            max_storingen = daily_data['storingen_count'].max()
+            max_treinen = daily_data['gem_treinen_per_uur'].max()
+            
+            fig_s.update_yaxes(
+                title_text="Aantal storingen", 
+                secondary_y=False,
+                range=[0, max_storingen * 1.1],  # Always start at 0, add 10% padding
+                fixedrange=False  # Allow zooming
+            )
+            
+            fig_s.update_yaxes(
+                title_text="Gem. treinen per uur", 
+                secondary_y=True,
+                range=[0, max_treinen * 1.1],  # Always start at 0, add 10% padding
+                fixedrange=False  # Allow zooming
+            )
+            
+            # Enhanced synchronization configuration
             fig_s.update_layout(
                 title=f"Storingen en treinverkeer – {st_choice}",
-                # Enable zoom synchronization
+                # Better zoom synchronization
                 xaxis=dict(
                     rangeslider=dict(visible=True),
                     type="date"
+                ),
+                # Link both y-axes to the same x-axis for better zoom behavior
+                yaxis=dict(
+                    title="Aantal storingen",
+                    side="left",
+                    showgrid=True
+                ),
+                yaxis2=dict(
+                    title="Gem. treinen per uur", 
+                    side="right",
+                    overlaying="y",
+                    showgrid=False  # Avoid grid line overlap
+                ),
+                # Better hover behavior
+                hovermode='x unified',
+                # Custom hover label styling
+                hoverlabel=dict(
+                    bgcolor="white",
+                    font_size=12,
+                    font_family="Arial"
                 )
             )
             
-            # Add JavaScript for zoom synchronization
-            fig_s.update_layout(
-                # This ensures both y-axes scale proportionally when zooming
-                yaxis=dict(anchor="x", domain=[0.0, 1.0]),
-                yaxis2=dict(anchor="x", domain=[0.0, 1.0], overlaying="y")
-            )
-            
         else:
-            # Fallback to single plot
+            # Fallback to single plot if no train data
             fig_s = px.area(daily_data, x="date", y="storingen_count", 
                            title=f"Storingen per dag – {st_choice}",
                            labels={"date":"Datum", "storingen_count":"Aantal storingen"})
@@ -732,7 +779,6 @@ with tab1:
         
         # Show statistics if train data is available
         if has_train_data and not daily_data.empty:
-            st.markdown("#### 📊 Statistieken")
             col_stat1, col_stat2, col_stat3 = st.columns(3)
             with col_stat1:
                 avg_storingen = daily_data['storingen_count'].mean()
