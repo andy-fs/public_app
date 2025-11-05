@@ -48,7 +48,7 @@ st.markdown(
 # --------------------
 LOC_TZ = pytz.timezone("Europe/Amsterdam")
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=1)
 def read_sensor_csv(path: str) -> pd.DataFrame:
     encodings_to_try = ["utf-8", "latin1", "windows-1252"]
     for enc in encodings_to_try:
@@ -79,7 +79,7 @@ def read_sensor_csv(path: str) -> pd.DataFrame:
     return df.sort_values("time_local").reset_index(drop=True)
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=2)
 def read_storing_csv(path: str, sep: str = ";") -> pd.DataFrame:
     encodings_to_try = ["utf-8", "latin1", "windows-1252"]
     for enc in encodings_to_try:
@@ -211,7 +211,7 @@ def _build_dataset_from_storingen(st_df: pd.DataFrame, agg: str = 'week') -> pd.
 # --------------------
 # Laatste storingen (Excel)
 # --------------------
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=2)
 def read_latest_storingen_xlsx(path: str) -> dict[str, pd.DataFrame]:
     """Read the 'Laatste storingen.xlsx' file and return dict of DataFrames per bridge."""
     dfs: dict[str, pd.DataFrame] = {}
@@ -1076,7 +1076,7 @@ with col_config2:
 # Data Preparation for Predictive Modeling
 # --------------------
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=2)
 def read_clean_storing_csv_for_rf(path: str, sep: str = ";") -> pd.DataFrame:
     """Read clean storings data specifically for RF models - no modifications"""
     encodings_to_try = ["utf-8", "latin1", "windows-1252"]
@@ -1105,7 +1105,7 @@ def read_clean_storing_csv_for_rf(path: str, sep: str = ";") -> pd.DataFrame:
     return df.sort_values("time_local").reset_index(drop=True)
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=1)
 def prepare_predictive_data_combined():
     """Bereid gecombineerde data voor van alle bruggen - USES FRESH DATA"""
     try:
@@ -1135,7 +1135,7 @@ def prepare_predictive_data_combined():
             df_sorted['interarrival_seconds'] = df_sorted['time_diff'].replace(0, 1e-6)
 
             # Maak lag features
-            n_lags = 10
+            n_lags = 7
 
             def create_lags(series, n_lags, prefix):
                 lags_df = pd.DataFrame()
@@ -1179,7 +1179,7 @@ def prepare_predictive_data_combined():
         return None
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=1)
 def prepare_predictive_data_single(bridge_name):
     """Bereid data voor predictive modeling voor één brug - USES FRESH CLEAN DATA"""
     try:
@@ -1264,7 +1264,7 @@ def prepare_predictive_data_single(bridge_name):
 # Temporal Split Function
 # --------------------
 
-def safe_temporal_split_multiple(df, test_chunk_pct=0.05, buffer=10):
+def safe_temporal_split_multiple(df, test_chunk_pct=0.05, buffer=7):
     """Temporale split met meerdere test chunks en buffers"""
     n = len(df)
     test_chunk_size = int(test_chunk_pct * n)
@@ -1466,8 +1466,9 @@ def train_and_evaluate_models():
         # Train Y1 model (regressie)
         with st.spinner("Tijd-tot-storing model (Y1) trainen..."):
             rf_Y1 = RandomForestRegressor(
-                n_estimators=500,
+                n_estimators=250,
                 random_state=42,
+                max_depth=15,
                 n_jobs=-1
             )
             rf_Y1.fit(X_train, y1_train)
@@ -1475,8 +1476,9 @@ def train_and_evaluate_models():
         # Train Y2 model (classificatie)
         with st.spinner("Storingstype model (Y2) trainen..."):
             rf_Y2 = RandomForestClassifier(
-                n_estimators=500,
+                n_estimators=250,
                 random_state=42,
+                max_depth=15,
                 n_jobs=-1
             )
             rf_Y2.fit(X_train, y2_train)
