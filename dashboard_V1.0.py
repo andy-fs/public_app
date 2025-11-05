@@ -670,14 +670,37 @@ with tab1:
             st.warning("Kon edited storingsdata niet laden met ondersteunde encodings")
             has_train_data = False
         else:
-            # Convert TimeString to datetime
-            st_df_edited['time_local'] = pd.to_datetime(st_df_edited['TimeString'], format='%d.%m.%Y %H:%M:%S')
-            st_df_edited['time_local'] = st_df_edited['time_local'].dt.tz_localize('Europe/Amsterdam')
+            # Debug: Show first few TimeString values to understand the format
+            st.sidebar.write("Eerste TimeString waarden:", st_df_edited['TimeString'].head(3).tolist())
+            
+            # Try multiple datetime formats for the edited files
+            try:
+                # First try ISO format (YYYY-MM-DD HH:MM:SS)
+                st_df_edited['time_local'] = pd.to_datetime(st_df_edited['TimeString'], format='%Y-%m-%d %H:%M:%S')
+            except:
+                try:
+                    # Try with timezone info if present
+                    st_df_edited['time_local'] = pd.to_datetime(st_df_edited['TimeString'], format='%Y-%m-%d %H:%M:%S%z')
+                except:
+                    try:
+                        # Try mixed formats
+                        st_df_edited['time_local'] = pd.to_datetime(st_df_edited['TimeString'])
+                    except:
+                        st.warning("Kon tijdstempels niet parsen in edited data")
+                        st_df_edited['time_local'] = pd.NaT
+            
+            # Convert to Amsterdam timezone
+            if st_df_edited['time_local'].dt.tz is None:
+                st_df_edited['time_local'] = st_df_edited['time_local'].dt.tz_localize('Europe/Amsterdam')
+            else:
+                st_df_edited['time_local'] = st_df_edited['time_local'].dt.tz_convert('Europe/Amsterdam')
             
             has_train_data = 'Trein' in st_df_edited.columns
             
-            # Debug: Show available columns
-            st.sidebar.write(f"Beschikbare kolommen in edited data: {list(st_df_edited.columns)}")
+            # Debug: Show available columns and sample data
+            st.sidebar.write(f"Beschikbare kolommen: {list(st_df_edited.columns)}")
+            if has_train_data:
+                st.sidebar.write(f"Trein data sample: {st_df_edited['Trein'].head(3).tolist()}")
             
     except Exception as e:
         st.warning(f"Kon edited storingsdata niet laden voor treininfo: {e}")
@@ -690,7 +713,7 @@ with tab1:
         # Daily storings counts
         s_daily = st_df.assign(date=st_df["time_local"].dt.date).groupby("date").size().reset_index(name="storingen_count")
         
-        if has_train_data and st_df_edited is not None:
+        if has_train_data and st_df_edited is not None and not st_df_edited.empty:
             # Prepare train data - aggregate by date
             st_df_edited['date'] = st_df_edited['time_local'].dt.date
             train_daily = st_df_edited.groupby('date')['Trein'].mean().reset_index()
