@@ -380,6 +380,11 @@ def pick_df(bridge):
 
 df_sel = pick_df(bridge_choice)
 
+# Debug: Show available tags
+st.sidebar.write(f"Available tags for {bridge_choice}:")
+st.sidebar.write(f"tag1 options: {sorted([t for t in df_sel['tag1'].dropna().unique() if str(t).strip() != ''])}")
+st.sidebar.write(f"tag2 options: {sorted([t for t in df_sel['tag2'].dropna().unique() if str(t).strip() != ''])}")
+
 # Keuzes voor tag1/tag2
 tags1 = sorted([t for t in df_sel["tag1"].dropna().unique() if str(t).strip() != ""])
 tags2 = sorted([t for t in df_sel["tag2"].dropna().unique() if str(t).strip() != ""])
@@ -387,14 +392,20 @@ tags2 = sorted([t for t in df_sel["tag2"].dropna().unique() if str(t).strip() !=
 col1, col2 = st.columns(2)
 
 with col1:
-    # Set default to Noostnop if available, otherwise first alphabetical
+    # Set default to exact matches
     default_tag1 = []
-    preferred_tags = ["Noodstop", "Bedienbrugpost"]
+    preferred_tags = ["Noodstop", "Noodknop", "Bedienbrugpost"]  # Added "Noodstop" as you mentioned
+    
+    # Check for exact matches
     for pref_tag in preferred_tags:
         if pref_tag in tags1:
             default_tag1 = [pref_tag]
+            st.sidebar.write(f"✅ Found tag1: {pref_tag}")
             break
+    
+    # If no preferred tags found, show warning and use first
     if not default_tag1 and tags1:
+        st.sidebar.warning(f"❌ Preferred tag1 not found. Using first available: {tags1[0]}")
         default_tag1 = [tags1[0]]
     
     tag1_pick = st.multiselect(
@@ -412,16 +423,19 @@ else:
 key_tag2 = f"tag2_{bridge_choice}_{'_'.join(tag1_pick) if tag1_pick else 'all'}"
 
 with col2:
-    # Set default to emergency-related tags if available
+    # Set default to exact emergency-related tags
     default_tag2 = []
-    preferred_tags2 = ["bNSknop_OK", "bCmdOpenen"]
+    preferred_tags2 = ["bNSknop_OK", "bNS_OK", "bCmdOpenen"]  # "bNSknop_OK" first as requested
     
-    # Check if any preferred tags are available
+    # Check for exact matches in available tags
     available_preferred = [tag for tag in preferred_tags2 if tag in valid_tag2]
+    
     if available_preferred:
-        default_tag2 = [available_preferred[0]]  # Take the first available preferred tags
+        default_tag2 = [available_preferred[0]]  # Use the first matching preferred tag
+        st.sidebar.write(f"✅ Found tag2: {available_preferred[0]}")
     elif valid_tag2:
-        default_tag2 = [valid_tag2[0]]  # Fallback to first alphabetical
+        st.sidebar.warning(f"❌ Preferred tag2 not found. Using first available: {valid_tag2[0]}")
+        default_tag2 = [valid_tag2[0]]
     
     tag2_pick = st.multiselect(
         "tag2 (status)",
@@ -429,6 +443,9 @@ with col2:
         default=default_tag2,
         key=key_tag2
     )
+
+# Show final selection
+st.sidebar.write(f"Final selection - tag1: {tag1_pick}, tag2: {tag2_pick}")
 
 df_filt = df_sel.copy()
 if tag1_pick:
