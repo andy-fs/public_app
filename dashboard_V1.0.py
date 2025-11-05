@@ -718,21 +718,20 @@ with tab1:
                 secondary_y=True,
             )
             
-            # Set axis titles - REMOVE fixed ranges to allow dynamic scaling
+            # Set axis titles
             fig_s.update_xaxes(title_text="Datum")
             
+            # Configure y-axes for dynamic scaling
             fig_s.update_yaxes(
                 title_text="Aantal storingen", 
                 secondary_y=False,
-                # REMOVE fixed range to allow dynamic scaling when zooming
-                fixedrange=False  # Allow zooming
+                rangemode="tozero"  # Always start at 0, but allow dynamic upper limit
             )
             
             fig_s.update_yaxes(
                 title_text="Gem. treinen per uur", 
                 secondary_y=True,
-                # REMOVE fixed range to allow dynamic scaling when zooming
-                fixedrange=False  # Allow zooming
+                rangemode="tozero"  # Always start at 0, but allow dynamic upper limit
             )
             
             # Enhanced synchronization configuration
@@ -741,22 +740,19 @@ with tab1:
                 # Better zoom synchronization
                 xaxis=dict(
                     rangeslider=dict(visible=True),
-                    type="date",
-                    autorange=True  # Allow automatic range adjustment
+                    type="date"
                 ),
                 # Link both y-axes to the same x-axis for better zoom behavior
                 yaxis=dict(
                     title="Aantal storingen",
                     side="left",
-                    showgrid=True,
-                    autorange=True  # Allow automatic range adjustment
+                    showgrid=True
                 ),
                 yaxis2=dict(
                     title="Gem. treinen per uur", 
                     side="right",
                     overlaying="y",
-                    showgrid=False,  # Avoid grid line overlap
-                    autorange=True  # Allow automatic range adjustment
+                    showgrid=False  # Avoid grid line overlap
                 ),
                 # Better hover behavior
                 hovermode='x unified',
@@ -774,64 +770,34 @@ with tab1:
                            title=f"Storingen per dag – {st_choice}",
                            labels={"date":"Datum", "storingen_count":"Aantal storingen"})
         
-        # Display the chart and capture zoom events
-        event = st.plotly_chart(fig_s, use_container_width=True, on_select="rerun", key=f"zoom_chart_{st_choice}")
+        # Display the chart
+        st.plotly_chart(fig_s, use_container_width=True)
         
-        # Initialize display_data with full dataset
-        display_data = daily_data.copy()
-        zoom_info = "volledige dataset"
-        
-        # Check if user has zoomed
-        if event.selection:
-            try:
-                # Get the zoom range from the selection event
-                x_range = event.selection["x"]
-                if x_range:
-                    zoom_start = pd.to_datetime(x_range[0])
-                    zoom_end = pd.to_datetime(x_range[1])
-                    
-                    # Filter data to zoom range
-                    zoom_mask = (daily_data['date'] >= zoom_start.date()) & (daily_data['date'] <= zoom_end.date())
-                    zoomed_data = daily_data[zoom_mask]
-                    
-                    if len(zoomed_data) > 0:
-                        display_data = zoomed_data
-                        zoom_info = f"gezoomde periode ({len(zoomed_data)} dagen)"
-                    else:
-                        zoom_info = "volledige dataset (geen data in zoom)"
-            except Exception as e:
-                st.sidebar.warning(f"Zoom error: {e}")
-                zoom_info = "volledige dataset (error)"
-        
-        # Show statistics based on current display data
+        # Show statistics for full dataset
         if has_train_data and not daily_data.empty:
-            st.markdown("#### 📊 Statistieken")
+            st.markdown("#### 📊 Statistieken (volledige dataset)")
             
             col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
             with col_stat1:
-                avg_storingen = display_data['storingen_count'].mean()
+                avg_storingen = daily_data['storingen_count'].mean()
                 st.metric("Gem. storingen/dag", f"{avg_storingen:.1f}")
             with col_stat2:
-                avg_treinen = display_data['gem_treinen_per_uur'].mean()
+                avg_treinen = daily_data['gem_treinen_per_uur'].mean()
                 st.metric("Gem. treinen/uur", f"{avg_treinen:.1f}")
             with col_stat3:
-                if len(display_data) > 1:
-                    correlation = display_data['storingen_count'].corr(display_data['gem_treinen_per_uur'])
+                if len(daily_data) > 1:
+                    correlation = daily_data['storingen_count'].corr(daily_data['gem_treinen_per_uur'])
                     st.metric("Correlatie", f"{correlation:.2f}")
                 else:
                     st.metric("Correlatie", "N/A")
             with col_stat4:
-                total_days = len(display_data)
-                st.metric("Dagen", f"{total_days}")
+                total_days = len(daily_data)
+                st.metric("Totaal dagen", f"{total_days}")
             
             # Add date range info
-            if len(display_data) > 0:
-                date_range_start = display_data['date'].min()
-                date_range_end = display_data['date'].max()
-                st.caption(f"**Datumbereik:** {date_range_start} tot {date_range_end} ({zoom_info})")
-            
-            # Instructions for user
-            st.info("💡 **Tip:** Zoom in op de grafiek (sleep horizontaal) en de statistieken updaten automatisch!")
+            date_range_start = daily_data['date'].min()
+            date_range_end = daily_data['date'].max()
+            st.caption(f"**Datumbereik:** {date_range_start} tot {date_range_end}")
 
 with tab2:
     st.markdown("### Meest voorkomende meldingen")
